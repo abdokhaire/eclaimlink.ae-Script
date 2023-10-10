@@ -7,8 +7,8 @@
 // @match        https://*.eclaimlink.ae/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=hayageek.com
 // @grant        unsafeWindow
-// @updateURL   https://raw.githubusercontent.com/abdokhaire/eclaimlink.ae-Script/main/script.js
-// @downloadURL https://raw.githubusercontent.com/abdokhaire/eclaimlink.ae-Script/main/script.js
+// @updateURL   https://raw.githubusercontent.com/abdokhaire/eclaimlink.ae-Script/main/eclaimlink.meta.js
+// @downloadURL https://raw.githubusercontent.com/abdokhaire/eclaimlink.ae-Script/main/eclaimlink.user.js
 // @supportURL  https://github.com/abdokhaire/eclaimlink.ae-Script/issues
 // @author      Ahmed Abdo
 
