@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eclaimlink.ae Export to CSV Script
 // @namespace    https://github.com/abdokhaire/eclaimlink.ae-Script
-// @version      0.1
+// @version      0.2
 // @description  This Script will add two buttons to the transaction list which will allow you extract CSV file with all the data required
 // @author       You
 // @match        https://*.eclaimlink.ae/*
@@ -23,46 +23,66 @@
     function showAllInfo(){
         let tableUpdates = $("#dataList").dataTable();
         tableUpdates.fnSettings()._iDisplayLength = 50000;
-        tableUpdates._fnReDraw();
         tableUpdates.off('draw.dt');
+        tableUpdates._fnReDraw();
+        if($('#exportData')){
+            $('#exportData').off('click');
+            $('#exportData').remove();
+        }
+        $('#showAllInfo').html('Please Wait we are preparing the data...');
+
         tableUpdates.on( 'draw.dt', function (e, settings) {
-            console.log(settings.aoData);
-            let promises = [];
+
+            let tIds =[];
             settings.aoData.forEach((row) => {
-                let tid = row._aData.DT_RowId;
-                promises.push(getTransInfo(tid));
+                tIds.push(row._aData.DT_RowId);
             });
 
+            let promises = preparePromises(tIds);
+
+            callAllPromises(promises);
+            let tableUpdates = $("#dataList").dataTable();
+            tableUpdates.off('draw.dt');
+        });
+    }
+
+    function preparePromises(tIds){
+        console.log("Prepare Promises");
+        let promises = [];
+        tIds.forEach((id) => {
+            promises.push(getTransInfo(id));
+        });
+        return promises;
+    }
+
+    function callAllPromises(promises){
+        console.log("Call All Promises");
+        Promise.allSettled(promises)
+            .then((results) => {
+            // results is an array of objects
+            //console.log(results);
+            $('#showAllInfo').html('Show All');
             if($('#exportData')){
                 $('#exportData').off('click');
                 $('#exportData').remove();
             }
-            $('#showAllInfo').html('Please Wait we are preparing the data...');
+            var exportButton = '<button class="button" id="exportData" style="width: 150px; height: auto;margin:5px;" type="button">Export CSV</button>';
+            $('#Filter').parent().append(exportButton);
 
-            Promise.allSettled(promises)
-                .then((results) => {
-                // results is an array of objects
-                //console.log(results);
-                $('#showAllInfo').html('Show All');
-                var exportButton = '<button class="button" id="exportData" style="width: 150px; height: auto;margin:5px;" type="button">Export CSV</button>';
-                $('#Filter').parent().append(exportButton);
-                var mapResult =
-
-                $('#exportData').on('click', function (e, settings) {
-                    console.log('Export Clicked');
-                    prepareResultCSV(results);
-                });
-
-                // [
-                //   { status: "fulfilled", value: 1 },
-                //   { status: "rejected", reason: "error" },
-                //   { status: "fulfilled", value: 2 },
-                // ]
-            })
-                .catch((error) => {
-                // This catch block will not be executed
-                console.error(error);
+            $('#exportData').on('click', function (e, settings) {
+                console.log('Export Clicked');
+                prepareResultCSV(results);
             });
+
+            // [
+            //   { status: "fulfilled", value: 1 },
+            //   { status: "rejected", reason: "error" },
+            //   { status: "fulfilled", value: 2 },
+            // ]
+        })
+            .catch((error) => {
+            // This catch block will not be executed
+            console.error(error);
         });
     }
 
@@ -74,8 +94,10 @@
                 url: 'https://apps.eclaimlink.ae/Services/DataList.ashx',
                 type: 'GET',
                 data: reqData,
+                timeout: 0,
+                tryCount : 0,
+                retryLimit : 2,
                 success: function (data) {
-                    console.log(data);
                     data.tid = tId;
                     data.net = 0;
                     data.share = 0;
@@ -86,8 +108,12 @@
                     resolve(data);
                 },
                 error: function (error) {
-                    //console.log(error);
                     error.tid = tId;
+                    if (this.tryCount <= this.retryLimit) {
+                        $.ajax(this);
+                        this.tryCount++;
+                        return;
+                    }
                     reject(error);
                 },
             })
@@ -105,7 +131,7 @@
     // name = 'Excel File Name';
     //
     function downloadCSVFile(headers, rows,name) {
-        console.log('downloadCSVFile');
+        console.log('Download CSV File');
         let hColumns = Object.keys(headers);
         const csvContent = [
             headers ,
@@ -140,6 +166,7 @@
     }
 
     function prepareCSV(){
+        console.log("Prepare CSV");
         let tableUpdates = $("#dataList").dataTable();
 
         let tableHeaders = tableUpdates.fnSettings().aoColumns;
@@ -160,7 +187,7 @@
             });
             rows.push(d);
         });
-        console.log(rows);
+
         let randx = Math.floor((Math.random() * 100) + 1);
         let fileName = $('#From').val() + '-' + $('#To').val()+ '-'+randx;
         downloadCSVFile(headers,rows,fileName);
@@ -168,7 +195,7 @@
     }
 
     function prepareResultCSV(result){
-        console.log(result);
+        console.log("Prepare Result CSV");
         let tableUpdates = $("#dataList").dataTable();
 
         let tableHeaders = tableUpdates.fnSettings().aoColumns;
@@ -181,8 +208,6 @@
         headers.net = 'Amount';
         headers.share = 'Patient share';
 
-        console.log(headers);
-
         let tableData = tableUpdates.fnSettings().aoData;
         let rows=[];
         tableData.forEach((element) => {
@@ -192,12 +217,16 @@
                 d[key] = element._aData[key];
             });
             d.trId = element._aData.DT_RowId;
-            let recResult = result.find((rec) => rec.value.tid == d.trId);
+            let recResult = result.find((rec) => {
+                if( (rec.value && rec.value.tid == d.trId) || (rec.reason && rec.reason.tid == d.trId)){
+                    return true;
+                }
+                return false;
+            });
             d.net = recResult?.value?.net;
             d.share = recResult?.value?.share;
             rows.push(d);
         });
-        console.log(rows);
         let randx = Math.floor((Math.random() * 100000) + 1);
         let fileName = $('#From').val() + '-' + $('#To').val()+ '-'+randx;
         downloadCSVFile(headers,rows,fileName);
@@ -216,9 +245,6 @@
             console.log('Show All Info Clicked');
             showAllInfo();
         });
-
-
-
 
     });
 
