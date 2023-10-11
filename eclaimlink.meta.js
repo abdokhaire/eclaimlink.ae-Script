@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eclaimlink.ae Export to CSV Script
 // @namespace    https://github.com/abdokhaire/eclaimlink.ae-Script
-// @version      0.1
+// @version      0.2
 // @description  This Script will add two buttons to the transaction list which will allow you extract CSV file with all the data required
 // @author       You
 // @match        https://*.eclaimlink.ae/*
